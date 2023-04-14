@@ -124,26 +124,67 @@ class _AuthScreenState extends State<AuthScreen> {
     });
   }
 
-  Future<void> _getAvailableBiometrics() async {
+  Future<void> _getBiometrics() async {
     late List<BiometricType> availableBiometrics;
     try {
       availableBiometrics = await auth.getAvailableBiometrics();
       // Use Platform specific Biometric Auth, Rules & Requirements if desired
       if (Platform.isIOS) {
         if (availableBiometrics.contains(BiometricType.face)) {
-          log("Face ID");
-          _authenticateWithBiometrics();
+          log("iOS - Face ID");
+          _authenticateWithBiometrics('Use Face ID to authenticate.');
         } else if (availableBiometrics.contains(BiometricType.fingerprint)) {
-          log("Fingerprint");
-          _authenticateWithBiometrics();
+          log("iOS - Fingerprint/Touch ID");
+          _authenticateWithBiometrics('Use Touch ID to authenticate.');
         }
       } else if (Platform.isAndroid) {
         if (availableBiometrics.contains(BiometricType.fingerprint)) {
-          log("Fingerprint");
-          _authenticateWithBiometrics();
+          log("Android - Fingerprint");
+          _authenticateWithBiometrics('Use Fingerprint to authenticate.');
         }
-        _authenticateWithBiometrics();
+        log("Others - Pattern");
+        // _authenticateWithBiometrics('Use Pattern to authenticate.');
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text("Warning!"),
+            content: const Text(
+              "Please Login with your\nPhone Number & Password to Authenticate.",
+              style: TextStyle(
+                color: Colors.red,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            actions: <Widget>[
+              Center(
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                  },
+                  child: const Text("OK"),
+                ),
+              ),
+            ],
+          ),
+        );
       }
+    } on PlatformException catch (e) {
+      availableBiometrics = <BiometricType>[];
+      log(e.message.toString());
+    }
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _availableBiometrics = availableBiometrics;
+    });
+  }
+
+  Future<void> _getAvailableBiometrics() async {
+    late List<BiometricType> availableBiometrics;
+    try {
+      availableBiometrics = await auth.getAvailableBiometrics();
     } on PlatformException catch (e) {
       availableBiometrics = <BiometricType>[];
       log(e.message.toString());
@@ -186,17 +227,26 @@ class _AuthScreenState extends State<AuthScreen> {
         () => _authorized = authenticated ? 'Authorized' : 'Not Authorized');
   }
 
-  Future<void> _authenticateWithBiometrics() async {
+  Future<void> _authenticateWithBiometrics(String message) async {
     bool authenticated = false;
     try {
       setState(() {
         _isAuthenticating = true;
         _authorized = 'Authenticating';
       });
-      authenticated = await auth.authenticate(
-        localizedReason:
-            'Scan your fingerprint (or face or whatever) to authenticate',
-      );
+      // NOTE: This method opens a dialog for fingerprint authentication.
+      // no need to create a dialog, since it will shown natively
+      if (Platform.isAndroid) {
+        authenticated = await auth.authenticate(
+          useErrorDialogs: true,
+          localizedReason: 'Scan with Fingerprint or Pattern to authenticate',
+        );
+      } else if (Platform.isIOS) {
+        authenticated = await auth.authenticate(
+          useErrorDialogs: true,
+          localizedReason: 'Scan with Face ID or Touch ID to authenticate.',
+        );
+      }
       setState(() {
         _isAuthenticating = false;
         _authorized = 'Authenticating';
@@ -254,7 +304,7 @@ class _AuthScreenState extends State<AuthScreen> {
             Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
-                // NOTE: This area explains whether User's device support Biometric or not
+                // This code stated whether User's device support Biometric or not
                 if (_supportState == _SupportState.unknown)
                   const CircularProgressIndicator()
                 else if (_supportState == _SupportState.supported)
@@ -338,10 +388,10 @@ class _AuthScreenState extends State<AuthScreen> {
           ],
         ),
         floatingActionButton: FloatingActionButton(
-          onPressed: _authenticateWithBiometrics,
+          onPressed: _getBiometrics,
           tooltip: 'Authentication',
           child: const Icon(Icons.fingerprint),
-        ), // This trailing comma makes auto-formatting nicer for build methods.
+        ),
       ),
     );
   }
