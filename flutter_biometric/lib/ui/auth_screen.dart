@@ -3,7 +3,6 @@ import 'dart:async';
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/foundation.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter_biometric/ui/second_screen.dart';
@@ -25,6 +24,7 @@ class _AuthScreenState extends State<AuthScreen> {
   List<BiometricType>? _availableBiometrics;
   String _authorized = 'Not Authorized';
   bool _isAuthenticating = false;
+  bool _isAuthFailed = false;
 
   @override
   void initState() {
@@ -138,36 +138,37 @@ class _AuthScreenState extends State<AuthScreen> {
           _authenticateWithBiometrics('Use Touch ID to authenticate.');
         }
       } else if (Platform.isAndroid) {
-        if (availableBiometrics.contains(BiometricType.fingerprint)) {
-          log("Android - Fingerprint");
+        if (availableBiometrics.contains(BiometricType.fingerprint) &&
+            availableBiometrics.contains(BiometricType.face)) {
+          log("Android");
           _authenticateWithBiometrics('Use Fingerprint to authenticate.');
         }
-        log("Others - Pattern");
-        // _authenticateWithBiometrics('Use Pattern to authenticate.');
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text("Warning!"),
-            content: const Text(
-              "Please Login with your\nPhone Number & Password to Authenticate.",
-              style: TextStyle(
-                color: Colors.red,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            actions: <Widget>[
-              Center(
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.of(ctx).pop();
-                  },
-                  child: const Text("OK"),
-                ),
-              ),
-            ],
-          ),
-        );
       }
+      log("Others - credentials auth");
+      _authenticateWithBiometrics('Use anything to authenticate.');
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text("Warning!"),
+          content: const Text(
+            "Please Login with your\nPhone Number & Password to Authenticate.",
+            style: TextStyle(
+              color: Colors.red,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          actions: <Widget>[
+            Center(
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                },
+                child: const Text("OK"),
+              ),
+            ),
+          ],
+        ),
+      );
     } on PlatformException catch (e) {
       availableBiometrics = <BiometricType>[];
       log(e.message.toString());
@@ -238,12 +239,15 @@ class _AuthScreenState extends State<AuthScreen> {
       // no need to create a dialog, since it will shown natively
       if (Platform.isAndroid) {
         authenticated = await auth.authenticate(
+          biometricOnly: true,
           useErrorDialogs: true,
-          localizedReason: 'Scan with Fingerprint or Pattern to authenticate',
+          localizedReason:
+              'Scan with Fingerprint or Face Recognition to authenticate.',
         );
       } else if (Platform.isIOS) {
         authenticated = await auth.authenticate(
           useErrorDialogs: true,
+          biometricOnly: true,
           localizedReason: 'Scan with Face ID or Touch ID to authenticate.',
         );
       }
