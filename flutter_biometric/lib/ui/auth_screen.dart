@@ -138,37 +138,12 @@ class _AuthScreenState extends State<AuthScreen> {
           _authenticateWithBiometrics('Use Touch ID to authenticate.');
         }
       } else if (Platform.isAndroid) {
-        if (availableBiometrics.contains(BiometricType.fingerprint) &&
+        if (availableBiometrics.contains(BiometricType.fingerprint) ||
             availableBiometrics.contains(BiometricType.face)) {
           log("Android");
           _authenticateWithBiometrics('Use Fingerprint to authenticate.');
         }
       }
-      log("Others - credentials auth");
-      _authenticateWithBiometrics('Use anything to authenticate.');
-      showDialog(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text("Warning!"),
-          content: const Text(
-            "Please Login with your\nPhone Number & Password to Authenticate.",
-            style: TextStyle(
-              color: Colors.red,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          actions: <Widget>[
-            Center(
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.of(ctx).pop();
-                },
-                child: const Text("OK"),
-              ),
-            ),
-          ],
-        ),
-      );
     } on PlatformException catch (e) {
       availableBiometrics = <BiometricType>[];
       log(e.message.toString());
@@ -241,14 +216,13 @@ class _AuthScreenState extends State<AuthScreen> {
         authenticated = await auth.authenticate(
           biometricOnly: true,
           useErrorDialogs: true,
-          localizedReason:
-              'Scan with Fingerprint or Face Recognition to authenticate.',
+          localizedReason: 'Authenticate with Biometric.',
         );
       } else if (Platform.isIOS) {
         authenticated = await auth.authenticate(
           useErrorDialogs: true,
           biometricOnly: true,
-          localizedReason: 'Scan with Face ID or Touch ID to authenticate.',
+          localizedReason: 'Authenticate with Face ID or Touch ID.',
         );
       }
       setState(() {
@@ -276,12 +250,39 @@ class _AuthScreenState extends State<AuthScreen> {
       setState(() {
         _isAuthenticating = false;
         _authorized = 'Error - ${e.message}';
+        _isAuthFailed = true;
       });
+      if (_isAuthFailed) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text("Warning!"),
+            content: const Text(
+              "Please Login with your\nPhone Number & Password to Authenticate.",
+              style: TextStyle(
+                color: Colors.red,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            actions: <Widget>[
+              Center(
+                child: ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                  },
+                  child: const Text("OK"),
+                ),
+              ),
+            ],
+          ),
+        );
+      }
       return;
     }
     // if (!mounted) {
     //   return;
     // }
+
     final String message = authenticated ? 'Authorized' : 'Not Authorized';
     setState(() {
       _authorized = message;

@@ -44,6 +44,5 @@
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<false/>
 	<string>Access of Face Id / Touch Id required to perform authentication</string>
-	<key>LSRequiresIPhoneOS</key>	
 </dict>
 </plist>
